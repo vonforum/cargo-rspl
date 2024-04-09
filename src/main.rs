@@ -2,7 +2,7 @@ use std::path::Path;
 use std::process::{Command, Output};
 use std::{fs, io, path::PathBuf};
 
-use reedline::{DefaultPrompt, Reedline, Signal};
+use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
 
 #[cfg(target_family = "windows")]
 fn build_file(dir: &Path, bin_name: &str) -> Result<Output, io::Error> {
@@ -48,14 +48,17 @@ fn main() {
 		cmd.manifest_path(path);
 	}
 
+	let mut manifest_path = None;
+	let mut crate_name = None;
 	let metadata = cmd.exec();
-	let mut manifest_path = metadata
-		.map(|metadata| {
-			let package = metadata.root_package();
-			package.map(|package| package.manifest_path.clone())
-		})
-		.ok()
-		.flatten();
+
+	if let Ok(metadata) = metadata {
+		let package = metadata.root_package();
+		if let Some(package) = package {
+			manifest_path = Some(package.manifest_path.clone());
+			crate_name = Some(package.name.clone());
+		}
+	}
 
 	if let Some(p) = &mut manifest_path {
 		p.pop();
@@ -88,6 +91,7 @@ fn main() {
 	}
 
 	let mut dir = manifest_path.map(PathBuf::from).unwrap_or(data_dir);
+	let crate_path = dir.clone();
 
 	if !source_data.in_crate {
 		fs::write(
@@ -118,18 +122,21 @@ edition = "2021"
 	let mut bin_path = dir.join(&source_data.bin_name);
 	bin_path.set_extension("rs");
 
-	let mut crate_path = dir.clone();
-	crate_path.pop();
-	crate_path.pop();
+	let crate_prompt = crate_name.unwrap_or("(global)".to_string());
 
 	let mut line_editor = Reedline::create();
-	let prompt = DefaultPrompt::default();
+	let prompt = DefaultPrompt::new(
+		DefaultPromptSegment::Basic(crate_prompt),
+		DefaultPromptSegment::CurrentDateTime,
+	);
 
 	let mut buffer: Vec<String> = vec![];
 	loop {
 		let sig = line_editor.read_line(&prompt);
 		match sig {
 			Ok(Signal::Success(line)) => {
+				// TODO: Handle let etc. differently
+				// TODO: Add commands: help, clear etc.
 				buffer.push(line);
 
 				fs::write(
