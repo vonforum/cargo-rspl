@@ -1,30 +1,24 @@
 use std::path::Path;
 use std::process::{Command, Output};
-use std::{fs, io, path::PathBuf};
+use std::{env, fs, io, path::PathBuf};
 
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
 
-#[cfg(target_family = "windows")]
-fn build_file(dir: &Path, bin_name: &str) -> Result<Output, io::Error> {
-	Command::new("cmd")
-		.current_dir(dir)
-		.arg("/C")
-		.arg(format!(
-			"cargo run -q --bin {} -- --cap-lints allow",
-			bin_name
-		))
-		.output()
+fn build_command(dir: &Path, bin_name: &str) -> Command {
+	let cargo = env::var("CARGO")
+		.map(PathBuf::from)
+		.ok()
+		.unwrap_or_else(|| PathBuf::from("cargo"));
+
+	let mut cmd = Command::new(cargo);
+	cmd.current_dir(dir);
+	cmd.args(["run", "-q", "--bin", bin_name]);
+
+	cmd
 }
 
-#[cfg(target_family = "unix")]
-fn build_file(dir: &Path) -> Result<Output, io::Error> {
-	Command::new("sh")
-		.current_dir(dir)
-		.arg("-c")
-		.arg("cargo run -q --bin")
-		.arg(bin_name)
-		.arg("-- --cap-lints allow")
-		.output()
+fn build_file(cmd: &mut Command) -> io::Result<Output> {
+	cmd.output()
 }
 
 struct Args {
@@ -130,6 +124,8 @@ edition = "2021"
 		DefaultPromptSegment::CurrentDateTime,
 	);
 
+	let mut cmd = build_command(&crate_path, &source_data.bin_name);
+
 	let mut buffer: Vec<String> = vec![];
 	loop {
 		let sig = line_editor.read_line(&prompt);
@@ -155,7 +151,7 @@ fn main() {{
 				)
 				.expect("Failed to write source file");
 
-				match build_file(&crate_path, &source_data.bin_name) {
+				match build_file(&mut cmd) {
 					Ok(output) => {
 						if output.status.success() {
 							let output =
