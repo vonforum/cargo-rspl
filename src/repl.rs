@@ -44,6 +44,33 @@ impl Repl {
 		match sig {
 			Signal::Success(mut line) => {
 				if line.starts_with(':') {
+					match line.as_str() {
+						":q" | ":quit" | ":exit" => return ReplResult::Exit,
+						":buffer" => {
+							println!("{}", self.buffer.join("\n"));
+						}
+						":clear" => {
+							self.buffer.clear();
+						}
+						":pop" => {
+							self.buffer.pop();
+						}
+						":h" | ":help" => {
+							println!(":q, :quit, :exit - Exit the REPL");
+							println!(":buffer - Print the current buffer");
+							println!(":clear - Clear the current buffer");
+							println!(":pop - Remove the last line from the buffer");
+							println!(":h, :help - Print this help message");
+						}
+						_ => {
+							eprintln!(
+								"Unknown command: {}. Type :help to show the available commands",
+								line
+							);
+						}
+					}
+
+					return ReplResult::Unknown;
 				} else {
 					if line.starts_with("let ") {
 						// Can't return let statements

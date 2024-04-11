@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 				ReplResult::Exit => break,
 				_ => {}
 			},
-			_ => {}
+			_ => break,
 		}
 	}
 
