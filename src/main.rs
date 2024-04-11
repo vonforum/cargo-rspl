@@ -1,27 +1,10 @@
 use std::error::Error;
-use std::path::Path;
-use std::process::{Command, Output};
-use std::{env, fs, io, path::PathBuf};
+use std::{fs, path::PathBuf};
 
-use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
+use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline};
+use rsepl::{Repl, ReplResult};
 
-fn build_command(dir: &Path, bin_name: &str) -> Command {
-	let cargo = env::var("CARGO")
-		.map(PathBuf::from)
-		.ok()
-		.unwrap_or_else(|| PathBuf::from("cargo"));
-
-	let mut cmd = Command::new(cargo);
-	cmd.current_dir(dir);
-	cmd.args(["run", "-q", "--bin", bin_name]);
-
-	cmd
-}
-
-fn build_file(cmd: &mut Command) -> io::Result<Output> {
-	cmd.output()
-}
-
+// TODO: Global flag
 struct Args {
 	bin_name: Option<String>,
 	data_dir: Option<String>,
@@ -133,54 +116,15 @@ edition = "2021"
 		DefaultPromptSegment::CurrentDateTime,
 	);
 
-	let mut cmd = build_command(&crate_path, &source_data.bin_name);
+	let mut rspl = Repl::new(&crate_path, &source_data.bin_name, bin_path.clone());
 
-	let mut buffer: Vec<String> = vec![];
 	loop {
 		let sig = line_editor.read_line(&prompt);
 		match sig {
-			Ok(Signal::Success(line)) => {
-				// TODO: Handle let etc. differently
-				// TODO: Add commands: help, clear etc.
-				buffer.push(line);
-
-				fs::write(
-					&bin_path,
-					format!(
-						r#"
-#![allow(warnings)]
-fn main() {{
-    print!("{{:?}}", {{
-        {}
-    }});
-}}
-"#,
-						buffer.join(";\n")
-					),
-				)
-				.expect("Failed to write source file");
-
-				match build_file(&mut cmd) {
-					Ok(output) => {
-						if output.status.success() {
-							let output =
-								String::from_utf8(output.stdout).expect("Failed to parse output");
-							println!("{}", output);
-						} else {
-							let output =
-								String::from_utf8(output.stderr).expect("Failed to parse output");
-							eprintln!("{}", output);
-
-							buffer.pop();
-						}
-					}
-					Err(e) => eprintln!("Failed to build: {}", e),
-				}
-			}
-			Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => {
-				println!("\nExiting!");
-				break;
-			}
+			Ok(sig) => match rspl.process_signal(sig) {
+				ReplResult::Exit => break,
+				_ => {}
+			},
 			_ => {}
 		}
 	}
