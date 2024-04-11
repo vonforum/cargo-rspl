@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::path::Path;
 use std::process::{Command, Output};
 use std::{env, fs, io, path::PathBuf};
@@ -34,7 +35,7 @@ struct SourceData {
 	src_existed: bool,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
 	let args = parse_args().expect("Failed to parse args");
 	let mut cmd = cargo_metadata::MetadataCommand::new();
 
@@ -62,7 +63,7 @@ fn main() {
 		bin_existed: false,
 		bin_name: args.bin_name.unwrap_or_else(|| {
 			if manifest_path.is_some() {
-				"_rspl_bin"
+				"_rspl_main_"
 			} else {
 				"main"
 			}
@@ -115,6 +116,14 @@ edition = "2021"
 
 	let mut bin_path = dir.join(&source_data.bin_name);
 	bin_path.set_extension("rs");
+
+	if bin_path.exists() {
+		return Err(format!(
+			"File already exists: {}. Specify a different name with --bin-name",
+			bin_path.display()
+		)
+		.into());
+	}
 
 	let crate_prompt = crate_name.unwrap_or("(global)".to_string());
 
@@ -189,6 +198,8 @@ fn main() {{
 			let _ = fs::remove_dir(&dir);
 		}
 	}
+
+	Ok(())
 }
 
 fn parse_args() -> Result<Args, pico_args::Error> {
