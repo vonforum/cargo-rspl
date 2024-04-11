@@ -2,7 +2,7 @@ use std::error::Error;
 use std::{fs, path::PathBuf};
 
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline};
-use rsepl::{Repl, ReplResult};
+use rsepl::{crate_data::CrateData, Repl, ReplResult};
 
 // TODO: Global flag
 struct Args {
@@ -11,15 +11,17 @@ struct Args {
 	manifest_path: Option<String>,
 }
 
-struct SourceData {
-	bin_existed: bool,
-	bin_name: String,
-	in_crate: bool,
-	src_existed: bool,
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
 	let args = parse_args().expect("Failed to parse args");
+
+	let data_dir = args
+		.data_dir
+		.map(PathBuf::from)
+		.unwrap_or(dirs::data_dir().expect(
+			"No data dir on this system. Run again by providing a writable data directory with --data-dir",
+		))
+		.join("rspl");
+
 	let mut cmd = cargo_metadata::MetadataCommand::new();
 
 	if let Some(path) = args.manifest_path {
@@ -42,81 +44,26 @@ fn main() -> Result<(), Box<dyn Error>> {
 		p.pop();
 	}
 
-	let mut source_data = SourceData {
-		bin_existed: false,
-		bin_name: args.bin_name.unwrap_or_else(|| {
-			if manifest_path.is_some() {
-				"_rspl_main_"
-			} else {
-				"main"
-			}
-			.to_string()
-		}),
-		in_crate: manifest_path.is_some(),
-		src_existed: false,
-	};
-
-	let data_dir = args
-		.data_dir
-		.map(PathBuf::from)
-		.unwrap_or(dirs::data_dir().expect(
-			"No data dir on this system. Run again by providing a writable data directory with --data-dir",
-		))
-		.join("rspl");
-
 	if !data_dir.exists() {
 		fs::create_dir_all(&data_dir).expect("Failed to create data directory");
 	}
 
-	let mut dir = manifest_path.map(PathBuf::from).unwrap_or(data_dir);
-	let crate_path = dir.clone();
-
-	if !source_data.in_crate {
-		fs::write(
-			&dir.join("Cargo.toml"),
-			r#"[package]
-name = "_"
-version = "0.1.0"
-edition = "2021"
-"#,
-		)
-		.expect("Failed to write Cargo.toml to data directory");
-	}
-
-	dir.push("src");
-	if dir.exists() {
-		source_data.src_existed = true;
-	} else {
-		fs::create_dir_all(&dir).expect("Failed to create src directory");
-	}
-
-	dir.push("bin");
-	if dir.exists() {
-		source_data.bin_existed = true;
-	} else {
-		fs::create_dir_all(&dir).expect("Failed to create bin directory");
-	}
-
-	let mut bin_path = dir.join(&source_data.bin_name);
-	bin_path.set_extension("rs");
-
-	if bin_path.exists() {
-		return Err(format!(
-			"File already exists: {}. Specify a different name with --bin-name",
-			bin_path.display()
-		)
-		.into());
-	}
+	let mut crate_data =
+		CrateData::init(args.bin_name, manifest_path.map(PathBuf::from), data_dir)?;
 
 	let crate_prompt = crate_name.unwrap_or("(global)".to_string());
 
 	let mut line_editor = Reedline::create();
 	let prompt = DefaultPrompt::new(
 		DefaultPromptSegment::Basic(crate_prompt),
-		DefaultPromptSegment::CurrentDateTime,
+		DefaultPromptSegment::Empty,
 	);
 
-	let mut rspl = Repl::new(&crate_path, &source_data.bin_name, bin_path.clone());
+	let mut rspl = Repl::new(
+		&crate_data.path,
+		&crate_data.bin_name,
+		crate_data.bin_path.clone(),
+	);
 
 	loop {
 		let sig = line_editor.read_line(&prompt);
@@ -129,19 +76,7 @@ edition = "2021"
 		}
 	}
 
-	// Clean up
-	if source_data.in_crate {
-		let _ = fs::remove_file(&bin_path);
-
-		if !source_data.bin_existed {
-			let _ = fs::remove_dir(&dir);
-		}
-
-		dir.pop();
-		if !source_data.src_existed {
-			let _ = fs::remove_dir(&dir);
-		}
-	}
+	crate_data.cleanup();
 
 	Ok(())
 }

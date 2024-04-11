@@ -89,8 +89,7 @@ fn main() {{
 					}
 				}
 			}
-			Signal::CtrlC | Signal::CtrlD => ReplResult::Exit,
-			_ => ReplResult::Unknown,
+			_ => ReplResult::Exit,
 		}
 	}
 }
