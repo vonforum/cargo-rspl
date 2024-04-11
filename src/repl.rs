@@ -42,9 +42,14 @@ impl Repl {
 
 	pub fn process_signal(&mut self, sig: Signal) -> ReplResult {
 		match sig {
-			Signal::Success(line) => {
+			Signal::Success(mut line) => {
 				if line.starts_with(':') {
 				} else {
+					if line.starts_with("let ") {
+						// Can't return let statements
+						line.push(';');
+					}
+
 					self.buffer.push(line);
 				}
 
