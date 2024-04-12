@@ -74,8 +74,8 @@ impl Repl {
 
 					return ReplResult::Unknown;
 				} else {
-					if line.starts_with("let ") {
-						// Can't return let statements
+					if line.starts_with("let ") || line.starts_with("use ") {
+						// Can't return some statements
 						line.push(';');
 					}
 
