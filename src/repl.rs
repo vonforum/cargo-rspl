@@ -5,6 +5,8 @@ use std::process::Command;
 
 use reedline::Signal;
 
+const REPL_SOURCE: &'static str = include_str!("repl/_rspl_main_.rs");
+
 pub enum ReplResult {
 	Unknown,
 	Success,
@@ -80,19 +82,10 @@ impl Repl {
 					self.buffer.push(line);
 				}
 
+				let joined = self.buffer.join(";\n");
 				write(
 					&self.bin_path,
-					format!(
-						r#"
-#![allow(warnings)]
-fn main() {{
-    print!("{{:?}}", {{
-        {}
-    }});
-}}
-"#,
-						self.buffer.join(";\n")
-					),
+					REPL_SOURCE.replace(r#""::_rspl_main_::";"#, &joined),
 				)
 				.expect("Failed to write source file");
 
