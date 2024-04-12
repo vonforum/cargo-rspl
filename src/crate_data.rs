@@ -60,7 +60,7 @@ edition = "2021"
 		data.bin_path.push(&data.bin_name);
 		data.bin_path.set_extension("rs");
 
-		if data.bin_path.exists() {
+		if data.in_crate && data.bin_path.exists() {
 			return Err(format!(
 				"File already exists: {}. Specify a different name with --bin-name",
 				data.bin_path.display()
