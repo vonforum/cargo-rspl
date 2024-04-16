@@ -1,6 +1,6 @@
 [package]
 name = "rsepl"
-description = "A rust REPL in your crate"
+description = "A rust REPL with access to your crate"
 readme = "README.md"
 repository = "https://github.com/vonforum/cargo-rspl"
 version = "0.3.1"

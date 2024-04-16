@@ -1,6 +1,8 @@
 # RsEPL
 
-**RsEPL** or **RsPL** is a cargo subcommand to run a Rust REPL *inside your crate*.
+**RsEPL** or **RsPL** is a cargo subcommand to run a Rust REPL, *with access to your crate*.
+
+Works as a regular rust REPL, but if run inside a crate, you can also access your crate's functions and dependencies.
 
 ## Example
 
@@ -8,6 +10,7 @@
 $ cargo new --lib foo
 $ cd foo
 $ cargo rspl
+
 foo> foo::add(1, 2)
 3
 ```
@@ -28,7 +31,7 @@ This adds the `cargo-rspl` binary to your `~/.cargo/bin` directory.
 $ cargo rspl
 ```
 
-Runs either a regular REPL if not in a crate, or a REPL with the crate's dependencies if in a crate.
+Runs either a regular REPL if not in a crate, or a REPL with the crate and its dependencies available if in a crate.
 
 ## Features
 
